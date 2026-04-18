@@ -1,5 +1,44 @@
 # 글로벌 논픽션 도서 트렌드 대시보드
 
+## 개발 페이즈
+
+### Phase 1 — 기반 세팅
+- `requirements.txt` 작성 (streamlit, requests, beautifulsoup4, pandas)
+- `config.py` 작성 (NYT API 키 등 설정값)
+- `fetchers/` 디렉토리 및 `__init__.py` 생성
+- Streamlit 앱 뼈대(`app.py`) 생성 및 로컬 실행 확인
+
+### Phase 2 — 데이터 수집 (fetchers)
+각 fetcher는 `[{"rank", "title", "author", "genre", "isbn", "source"}]` 형태의 리스트를 반환
+- `nyt.py` — NYT Books API (논픽션 3개 리스트)
+- `aladin.py` — 알라딘 베스트셀러 스크래핑
+- `kyobo.py` — 교보문고 베스트셀러 스크래핑
+- `yes24.py` — Yes24 베스트셀러 스크래핑
+- `uk.py` — Waterstones 스크래핑
+- `japan.py` — honto.jp 스크래핑
+- `germany.py` — Spiegel Bestseller 스크래핑
+- `goodreads.py` — Goodreads 논픽션 shelf 스크래핑
+
+### Phase 3 — 데이터 처리 (processor.py)
+- 크로스오버 감지: 제목 정규화 후 2개국 이상 등장 도서 추출
+- 장르 분류: NYT 카테고리 / 알라딘 카테고리 / 키워드 기반 분류
+- 미출간 판별: 해외 베스트셀러를 알라딘에서 검색, 결과 없으면 미출간
+
+### Phase 4 — 대시보드 UI (app.py)
+- 국가별 베스트셀러 탭 (한국 탭 내 알라딘·교보·Yes24 서브탭)
+- 크로스오버 시그널 섹션
+- 국가별 장르 온도계 (가로 막대 차트)
+- Goodreads 신흥 시그널 섹션
+- 한국 미출간 해외 주목작 섹션
+
+### Phase 5 — 마무리
+- 스크래핑 실패 시 에러 없이 "데이터 없음" 처리
+- `st.cache_data(ttl=1800)` 캐싱 적용
+- UI 레이아웃·색상 다듬기
+- GitHub push 및 최종 정리
+
+---
+
 ## 프로젝트 목적
 5개국(한국, 미국, 영국, 일본, 독일) 논픽션 베스트셀러 데이터를 수집·분석해 트렌드를 한눈에 파악하는 대시보드.
 초보 개발자가 로컬에서 혼자 사용하는 도구이며 로그인 없음.
