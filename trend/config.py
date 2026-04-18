@@ -1,1 +1,2 @@
-NYT_API_KEY = "LJ4LMP52cxrS5ZQxBwe8S1OPEewkvuF1ATnvW87GJjWPkCmF"
+import os
+NYT_API_KEY = os.environ.get("NYT_API_KEY", "LJ4LMP52cxrS5ZQxBwe8S1OPEewkvuF1ATnvW87GJjWPkCmF")
