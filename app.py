@@ -114,7 +114,7 @@ with tab_kr:
 
 with tab_us:
     with st.spinner("NYT 로딩 중..."):
-        show_books(load_nyt())
+        show_books(load_nyt(), has_ko_title=True)
 
 with tab_uk:
     with st.spinner("Amazon UK 로딩 중..."):

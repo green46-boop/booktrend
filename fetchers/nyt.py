@@ -1,5 +1,6 @@
 import requests
 from config import NYT_API_KEY
+from translator import translate_titles
 
 LISTS = [
     "combined-print-and-e-book-nonfiction",
@@ -18,7 +19,9 @@ def fetch():
         try:
             res = requests.get(url, timeout=10)
             res.raise_for_status()
-            for b in res.json()["results"]["books"]:
+            data = res.json()["results"]
+            genre = data["display_name"]
+            for b in data["books"]:
                 isbn = b.get("primary_isbn13", "")
                 if isbn in seen:
                     continue
@@ -27,10 +30,18 @@ def fetch():
                     "rank": b["rank"],
                     "title": b["title"],
                     "author": b["author"],
-                    "genre": list_name.replace("-", " "),
+                    "genre": genre,
                     "isbn": isbn,
                     "source": "NYT",
                 })
         except Exception:
             pass
-    return sorted(books, key=lambda x: x["rank"])
+
+    books = sorted(books, key=lambda x: x["rank"])
+
+    titles = [b["title"] for b in books]
+    ko_titles = translate_titles(titles)
+    for b, kt in zip(books, ko_titles):
+        b["ko_title"] = kt
+
+    return books
