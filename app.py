@@ -3,6 +3,7 @@ import pandas as pd
 from fetchers import nyt, aladin, kyobo, yes24, uk, japan, germany, goodreads
 from classifier import classify
 from translator import translate_titles
+from processor import get_crossover, get_genre_stats, get_unpublished_kr
 
 st.set_page_config(
     page_title="글로벌 논픽션 도서 트렌드",
@@ -28,25 +29,20 @@ def enrich_genre(books):
 
 @st.cache_data(ttl=1800)
 def load_nyt():
-    return enrich_genre(nyt.fetch())
+    return nyt.fetch()
 
 @st.cache_data(ttl=1800)
 def load_aladin():
-    return enrich_genre(aladin.fetch())
-
-@st.cache_data(ttl=1800)
-def load_kyobo():
-    return enrich_genre(kyobo.fetch())
+    return aladin.fetch()
 
 @st.cache_data(ttl=1800)
 def load_yes24():
-    return enrich_genre(yes24.fetch())
+    return yes24.fetch()
 
 @st.cache_data(ttl=1800)
 def load_uk():
     books = enrich_genre(uk.fetch())
-    titles = [b["title"] for b in books]
-    ko_titles = translate_titles(titles)
+    ko_titles = translate_titles([b["title"] for b in books])
     for b, kt in zip(books, ko_titles):
         b["ko_title"] = kt
     return books
@@ -54,8 +50,7 @@ def load_uk():
 @st.cache_data(ttl=1800)
 def load_japan():
     books = enrich_genre(japan.fetch())
-    titles = [b["title"] for b in books]
-    ko_titles = translate_titles(titles)
+    ko_titles = translate_titles([b["title"] for b in books])
     for b, kt in zip(books, ko_titles):
         b["ko_title"] = kt
     return books
@@ -63,8 +58,7 @@ def load_japan():
 @st.cache_data(ttl=1800)
 def load_germany():
     books = enrich_genre(germany.fetch())
-    titles = [b["title"] for b in books]
-    ko_titles = translate_titles(titles)
+    ko_titles = translate_titles([b["title"] for b in books])
     for b, kt in zip(books, ko_titles):
         b["ko_title"] = kt
     return books
@@ -72,11 +66,19 @@ def load_germany():
 @st.cache_data(ttl=1800)
 def load_goodreads():
     books = enrich_genre(goodreads.fetch())
-    titles = [b["title"] for b in books]
-    ko_titles = translate_titles(titles)
+    ko_titles = translate_titles([b["title"] for b in books])
     for b, kt in zip(books, ko_titles):
         b["ko_title"] = kt
     return books
+
+@st.cache_data(ttl=1800)
+def load_unpublished():
+    foreign = (
+        [dict(b, source="미국") for b in load_nyt()[:15]] +
+        [dict(b, source="영국") for b in load_uk()[:15]] +
+        [dict(b, source="독일") for b in load_germany()[:15]]
+    )
+    return get_unpublished_kr(foreign)
 
 
 def show_books(books, has_ko_title=False):
@@ -98,7 +100,7 @@ def show_books(books, has_ko_title=False):
     st.dataframe(df, use_container_width=True, hide_index=True)
 
 
-# 국가별 베스트셀러
+# ── 국가별 베스트셀러 ──────────────────────────────────────────
 st.header("🌍 국가별 베스트셀러 순위")
 tab_kr, tab_us, tab_uk, tab_jp, tab_de = st.tabs(
     ["🇰🇷 한국", "🇺🇸 미국", "🇬🇧 영국", "🇯🇵 일본", "🇩🇪 독일"]
@@ -133,25 +135,94 @@ with tab_de:
 
 st.divider()
 
-# 크로스오버 시그널
+# ── 크로스오버 시그널 ─────────────────────────────────────────
 st.header("🔁 크로스오버 시그널")
-st.info("Phase 3에서 구현 예정 — 2개국 이상 공통 베스트셀러")
+st.caption("2개국 이상 베스트셀러에 동시 등장한 도서")
+
+with st.spinner("크로스오버 분석 중..."):
+    country_books = {
+        "한국(알라딘)": load_aladin(),
+        "한국(Yes24)":  load_yes24(),
+        "미국":         load_nyt(),
+        "영국":         load_uk(),
+        "일본":         load_japan(),
+        "독일":         load_germany(),
+    }
+    crossovers = get_crossover(country_books)
+
+if crossovers:
+    rows = []
+    for c in crossovers:
+        country_str = " · ".join(
+            f"{country}({rank}위)" for country, rank in c["countries"].items()
+        )
+        rows.append({
+            "제목": c["title"],
+            "저자": c["author"],
+            "등장 국가": country_str,
+            "국가 수": c["count"],
+        })
+    df_cross = pd.DataFrame(rows)
+    st.dataframe(df_cross, use_container_width=True, hide_index=True)
+else:
+    st.info("현재 2개국 이상 공통 베스트셀러가 없습니다.")
 
 st.divider()
 
-# 장르 온도계
+# ── 국가별 장르 온도계 ────────────────────────────────────────
 st.header("🌡️ 국가별 장르 온도계")
-st.info("Phase 3에서 구현 예정 — 국가별 장르 분포")
+st.caption("각 국가 베스트셀러의 장르 분포")
+
+genre_sources = {
+    "🇺🇸 미국(NYT)":   load_nyt(),
+    "🇰🇷 한국(Yes24)": load_yes24(),
+    "🇬🇧 영국":        load_uk(),
+    "🇯🇵 일본":        load_japan(),
+    "🇩🇪 독일":        load_germany(),
+}
+
+genre_cols = st.columns(len(genre_sources))
+for col, (label, books) in zip(genre_cols, genre_sources.items()):
+    with col:
+        st.subheader(label)
+        stats = get_genre_stats(books)
+        if stats:
+            total = sum(stats.values())
+            for genre, count in stats.items():
+                pct = count / total
+                st.write(f"**{genre}** {count}권")
+                st.progress(pct)
+        else:
+            st.caption("장르 정보 없음")
 
 st.divider()
 
-# 신흥 시그널
+# ── 신흥 시그널 ───────────────────────────────────────────────
 st.header("🌱 신흥 시그널 (Goodreads)")
+st.caption("Goodreads 논픽션 인기 도서")
 with st.spinner("Goodreads 로딩 중..."):
     show_books(load_goodreads(), has_ko_title=True)
 
 st.divider()
 
-# 한국 미출간 주목작
+# ── 한국 미출간 해외 주목작 ───────────────────────────────────
 st.header("🔍 한국 미출간 해외 주목작")
-st.info("Phase 3에서 구현 예정 — 해외 베스트셀러 중 한국 미출간 도서")
+st.caption("미국·영국·독일 베스트셀러 중 알라딘 검색 결과 없는 도서")
+
+with st.spinner("미출간 도서 확인 중... (시간이 걸릴 수 있습니다)"):
+    unpublished = load_unpublished()
+
+if unpublished:
+    rows = []
+    for b in unpublished:
+        rows.append({
+            "국가": b.get("source", ""),
+            "원제": b["title"],
+            "가제(한국어)": b.get("ko_title", ""),
+            "저자": b.get("author", ""),
+            "장르": b.get("genre", ""),
+        })
+    df_un = pd.DataFrame(rows)
+    st.dataframe(df_un, use_container_width=True, hide_index=True)
+else:
+    st.info("미출간 주목작이 없거나 확인 중입니다.")
