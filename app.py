@@ -89,8 +89,11 @@ def show_books(books, has_ko_title=False):
     if has_ko_title and "ko_title" in df.columns:
         cols.append("ko_title")
         rename["ko_title"] = "가제(한국어)"
-    cols += ["author", "genre"]
-    rename.update({"author": "저자", "genre": "장르"})
+    cols.append("author")
+    rename["author"] = "저자"
+    if "genre" in df.columns and df["genre"].str.strip().any():
+        cols.append("genre")
+        rename["genre"] = "장르"
     df = df[cols].rename(columns=rename)
     st.dataframe(df, use_container_width=True, hide_index=True)
 
