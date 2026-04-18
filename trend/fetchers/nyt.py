@@ -1,6 +1,6 @@
 import requests
-from config import NYT_API_KEY
-from translator import translate_titles
+from trend.config import NYT_API_KEY
+from trend.translator import translate_titles
 
 LISTS = [
     "combined-print-and-e-book-nonfiction",
