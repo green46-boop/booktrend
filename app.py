@@ -3,7 +3,7 @@ import pandas as pd
 from fetchers import nyt, aladin, kyobo, yes24, uk, japan, germany, goodreads
 from classifier import classify
 from translator import translate_titles
-from processor import get_crossover, get_genre_stats, get_unpublished_kr
+from processor import get_crossover, get_genre_stats
 
 st.set_page_config(
     page_title="글로벌 논픽션 도서 트렌드",
@@ -71,14 +71,6 @@ def load_goodreads():
         b["ko_title"] = kt
     return books
 
-@st.cache_data(ttl=1800)
-def load_unpublished():
-    foreign = (
-        [dict(b, source="미국") for b in load_nyt()[:15]] +
-        [dict(b, source="영국") for b in load_uk()[:15]] +
-        [dict(b, source="독일") for b in load_germany()[:15]]
-    )
-    return get_unpublished_kr(foreign)
 
 
 def show_books(books, has_ko_title=False):
@@ -203,26 +195,3 @@ st.caption("Goodreads 논픽션 인기 도서")
 with st.spinner("Goodreads 로딩 중..."):
     show_books(load_goodreads(), has_ko_title=True)
 
-st.divider()
-
-# ── 한국 미출간 해외 주목작 ───────────────────────────────────
-st.header("🔍 한국 미출간 해외 주목작")
-st.caption("미국·영국·독일 베스트셀러 중 알라딘 검색 결과 없는 도서")
-
-with st.spinner("미출간 도서 확인 중... (시간이 걸릴 수 있습니다)"):
-    unpublished = load_unpublished()
-
-if unpublished:
-    rows = []
-    for b in unpublished:
-        rows.append({
-            "국가": b.get("source", ""),
-            "원제": b["title"],
-            "가제(한국어)": b.get("ko_title", ""),
-            "저자": b.get("author", ""),
-            "장르": b.get("genre", ""),
-        })
-    df_un = pd.DataFrame(rows)
-    st.dataframe(df_un, use_container_width=True, hide_index=True)
-else:
-    st.info("미출간 주목작이 없거나 확인 중입니다.")
